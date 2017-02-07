@@ -7,16 +7,16 @@ object csp {
   // A Var has an ID (string) and a domain of legal values
   case class Var[A](id:VarID, domain:Domain[A])
 
-  type Vars[A] = List[Var[A]]
+  type Vars[A] = Seq[Var[A]]
 
-  type Domain[A] = List[A]
-  type Domains[A] = List[Domain[A]]
+  type Domain[A] = Seq[A]
+  type Domains[A] = Seq[Domain[A]]
 
   type BinRel[A] = (A,A) => Boolean
   type UnaryRel[A] = A => Boolean
 
   // not used right now
-  type NAryRel[A] = List[A] => Boolean
+  type NAryRel[A] = Seq[A] => Boolean
 
   sealed trait Constraint[+A]
 
@@ -47,7 +47,7 @@ object csp {
   }
 
   // not used right now
-  case class NAryCon[A](vars: List[A], rel: NAryRel[A]) extends Constraint[A]
+  case class NAryCon[A](vars: Seq[A], rel: NAryRel[A]) extends Constraint[A]
 
   object Constraint {
     // "smart" constructor - just slightly more handy that writing the normal
@@ -61,14 +61,14 @@ object csp {
       UnaryCon[A](v,rel)
 
     // represent an AllDiff constraint as a list of binary constraints
-    def allDiff[A](vars:List[VarID]):List[BinCon[A]] =
+    def allDiff[A](vars:Seq[VarID]):Seq[BinCon[A]] =
       for {
         v <- vars
         v2 <- vars if v != v2
       } yield binary[A]((v, v2), _ != _)
   }
 
-  type Constraints[A] = List[Constraint[A]]
+  type Constraints[A] = Seq[Constraint[A]]
 
   object CSP {
 
@@ -80,7 +80,7 @@ object csp {
     ))
 
     // type aliases used to customize backtracking
-    type VarSelecter[A] = (List[VarID], CSP[A]) => (VarID, List[VarID])
+    type VarSelecter[A] = (Seq[VarID], CSP[A]) => (VarID, Seq[VarID])
     type DomainOrderer[A] = Domain[A] => Domain[A]
     type Inferencer[A] = (CSP[A], VarID, Assignment[A]) => Option[CSP[A]]
 
@@ -171,25 +171,21 @@ object csp {
     // get variables that is the left hand side in a constraint with
     // vid as the right hand side.
     // Could also be called "neighbours"
-    def dependents(vid:VarID):List[BinCon[A]] =
+    def dependents(vid:VarID):Seq[BinCon[A]] =
       binaryConstraints.filter(_.vars._2 == vid)
 
     // get a list of all unary constraints in the CSP
-    def unaryConstraints:List[UnaryCon[A]] =
-      constraints.flatMap {
-        case c@UnaryCon(_,_) => List(c)
-        case _             => Nil
-      }
+    def unaryConstraints:Seq[UnaryCon[A]] =
+      constraints.filter({case c:UnaryCon[A] => true; case _ => false})
+        .map(_.asInstanceOf[UnaryCon[A]])
 
     // get a list of all binary constraints in the CSP
-    def binaryConstraints:List[BinCon[A]] =
-      constraints.flatMap {
-        case c@BinCon(_,_) => List(c)
-        case _             => Nil
-      }
+    def binaryConstraints:Seq[BinCon[A]] =
+      constraints.filter({case c:BinCon[A] => true; case _ => false})
+        .map(_.asInstanceOf[BinCon[A]])
 
     // represent all binary constraints as two directed arcs in a graph
-    def arcs:List[BinCon[A]] = {
+    def arcs:Seq[BinCon[A]] = {
       val as = binaryConstraints
       as ++ as.map (_.reflect)
     }
@@ -206,18 +202,18 @@ object csp {
 
     /**
      * Returns an Option of arc-consistent CSP
-     * @param queue List[BinCon[A]] A queue of binary constraint arcs that
+     * @param queue Seq[BinCon[A]] A queue of binary constraint arcs that
      * need to be made arc-consistent. default: this.arcs
      * @type Option[CSP[A]]
      */
-    def arcConsistent(queue:List[BinCon[A]] = this.arcs):Option[CSP[A]] = {
+    def arcConsistent(queue:Seq[BinCon[A]] = this.arcs):Option[CSP[A]] = {
 
-      def getPropagated(x:Var[A], y:Var[A], csp:CSP[A]):List[BinCon[A]] = {
+      def getPropagated(x:Var[A], y:Var[A], csp:CSP[A]):Seq[BinCon[A]] = {
         csp.arcs.filter(_.vars._1 != y.id).filter(_.vars._2 == x.id)
       }
 
       @annotation.tailrec
-      def ac(queue:List[BinCon[A]], csp:CSP[A]):Option[CSP[A]] = queue match {
+      def ac(queue:Seq[BinCon[A]], csp:CSP[A]):Option[CSP[A]] = queue match {
         case Nil => Some(csp)
         case c :: cs => {
           // we cannot flatmap this, because then we lose tail recursion
@@ -248,18 +244,18 @@ object csp {
 
     // Create a new CSP from an assignment.
     // Basically, to assign a variable in a CSP, just constrain its domain
-    // to a single value, i.e. List(value)
+    // to a single value, i.e. Seq(value)
     def assign(ass:Assignment[A]):CSP[A] = {
-      def as(ass:List[VarAss[A]]):CSP[A] = {
+      def as(ass:Seq[VarAss[A]]):CSP[A] = {
         ass.foldLeft (this) {(c, a) =>
-          c.updateDomain(a.varID, List(a.value))
+          c.updateDomain(a.varID, Seq(a.value))
         }
       }
       as(ass.assigned)
     }
 
     def assign(ass:VarAss[A]):CSP[A] = {
-      this.updateDomain(ass.varID, List(ass.value))
+      this.updateDomain(ass.varID, Seq(ass.value))
     }
 
     def isConsistent(ass:CompleteAssignment[A]):Boolean = {
@@ -290,6 +286,15 @@ object csp {
                   inferencer:Inferencer[A] = FCInference)
                   :Option[Assignment[A]] = {
 
+      def foldLeft[A,B](xs:Seq[A])(b:B) (f:(B,A) => B): B = {
+        @annotation.tailrec
+        def go(acc:B, xs:Seq[A]):B = xs match {
+          case Nil => acc
+          case h :: tl => go(f(acc,h), tl)
+        }
+
+        go(b, xs)
+      }
 
       def bc(ass:Assignment[A], csp:CSP[A]):Option[Assignment[A]] = ass match {
 
@@ -307,18 +312,37 @@ object csp {
           // assign, check if valid if yes, move on on, if no, try next
           // value
           val domain = domainOrderer(csp.domain(u))
-          domain.foldLeft[Option[Assignment[A]]] (None) ((a,d) => {
-            if (a.isEmpty == false) a // solution already found
-            else {
+          var a:Option[Assignment[A]] = None
+          var ds = domain
+          while (a.isEmpty && !ds.isEmpty) {
+            val d = ds.head
+            ds = ds.tail
+            a = {
               val varAss = VarAss(u, d)
-              val ass2 = PartialAssignment(varAss :: assigned, us)
+              val ass2 = PartialAssignment(varAss +: assigned, us)
               if (csp.canAssign(varAss))
-                inferencer(csp.assign(varAss), u, ass2).flatMap(csp2 =>
-                  bc(ass2, csp2)
-                )
+                inferencer(csp.assign(varAss), u, ass2) match {
+                  case Some(csp2) => bc(ass2, csp2)
+                  case None => None
+                }
               else None
             }
-          })
+          }
+          return a
+
+          // foldLeft[A, Option[Assignment[A]]] (domain) (None) ((a,d) => {
+          //   if (a.isEmpty == false) a // solution already found
+          //   else {
+          //     val varAss = VarAss(u, d)
+          //     val ass2 = PartialAssignment(varAss :: assigned, us)
+          //     if (csp.canAssign(varAss))
+          //       inferencer(csp.assign(varAss), u, ass2) match {
+          //         case Some(csp2) => bc(ass2, csp2)
+          //         case None => None
+          //       }
+          //     else None
+          //   }
+          // })
         }
 
       }
@@ -336,18 +360,18 @@ object csp {
 
   // base class for a CSP assignment (i.e. multiple variables assigned)
   sealed trait Assignment[+A] {
-    def assigned:List[VarAss[A]]
-    def unassigned:List[VarID]
+    def assigned:Seq[VarAss[A]]
+    def unassigned:Seq[VarID]
   }
 
   // a partial assignment
   case class PartialAssignment[A]
-            (assigned:List[VarAss[A]], unassigned:List[VarID])
+            (assigned:Seq[VarAss[A]], unassigned:Seq[VarID])
              extends Assignment[A]
 
   // a compelte assignment
   case class CompleteAssignment[A]
-            (assigned:List[VarAss[A]])
+            (assigned:Seq[VarAss[A]])
             extends Assignment[A] {
 
     def unassigned = Nil

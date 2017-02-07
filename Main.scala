@@ -87,7 +87,7 @@ object Main extends App {
     sudoku2csp(simple)
   }
 
-  def showSudoku(s:List[Int]):String = s
+  def showSudoku(s:Seq[Int]):String = s
     .grouped(9).toList
     .map(
       _.grouped(3).toList.map(
@@ -222,7 +222,7 @@ object Main extends App {
 
   }
 
-
+  // test()
   testShiftAssignment()
 
  }

@@ -5,10 +5,11 @@ import Constraint._
 object Shifts {
 
   def testShiftAssignment() = {
+    val diw = 7 // days in week
     case class Day(week:Int, day:Int)
     val weeks = List.range(0,4)
     val days = weeks.flatMap(w =>
-      for (d <- w*7 until w*7+7) yield
+      for (d <- w*diw until w*diw+diw) yield
         Day(w, d)
     )
     def daysInWeek(w:Int) = days.filter(_.week == w)
