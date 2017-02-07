@@ -87,7 +87,7 @@ object Shifts {
     }
 
     // println(d1)
-    val csp = CSP(dayShiftVars.toList, d1.toList)
+    val csp = CSP(dayShiftVars.map(x => (x.id, x)).toMap, d1.toList)
     val sol = csp.backtrack(inferencer = CSP.MCInference)
     println(sol)
   }

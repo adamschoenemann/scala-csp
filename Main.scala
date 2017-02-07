@@ -67,7 +67,7 @@ object Main extends App {
       ).toList
 
     val constraints = allDiffRows ++ allDiffCols ++ allDiffBoxes ++ assigned
-    CSP(vars, constraints)
+    CSP(vars.map(x => (x.id, x)).toMap, constraints)
   }
 
   def simpleSudoku = {
@@ -124,7 +124,7 @@ object Main extends App {
     import Constraint.{unary}
     val domain = List.range(0,21)
     val c1 = CSP(
-      List(Var("x", domain), Var("y",domain), Var("z",domain)),
+      List("x","y","z").map(x => (x, Var(x, domain))).toMap,
       List(
         unary[Int]("x", _ % 2 == 0),
         unary[Int]("y", _ % 2 == 1),
@@ -149,7 +149,7 @@ object Main extends App {
     val x = Var("x", digits)
     val y = Var("y", digits)
     val c1 = CSP(
-      List(x, y),
+      Map("x" -> x, "y" -> y),
       List(
         BinCon[Int](("x","y"), (x,y) => y == x * x)
       )
@@ -165,9 +165,7 @@ object Main extends App {
     import Constraint._
     val domain = List.range(1,7)
     val c1 = CSP(
-      List(
-        Var("c1", domain), Var("c2", domain), Var("c3", domain), Var("c4", domain)
-      ),
+      List("c1", "c2", "c3", "c4").map(x => (x, Var(x, domain))).toMap,
       List(
         unary[Int]("c1", _ != 1), unary[Int]("c2", _ != 2),
         unary[Int]("c3", _ != 3), unary[Int]("c4", _ != 4),
@@ -198,10 +196,7 @@ object Main extends App {
   def testExam15() = {
     val domain = List(1,2,3,4)
     val exam = CSP(
-      List(
-        ("a", domain), ("b", domain), ("c", domain), ("d", domain),
-        ("e", domain), ("f", domain)
-      ),
+      List("a","b","c","d","e","f").map(x => (x, Var(x, domain))).toMap,
       List[BinCon[Int]](
         ("a","b", (_:Int) + (_:Int) == 5),
         ("b","d", (_:Int) + (_:Int) == 6),

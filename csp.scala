@@ -7,7 +7,7 @@ object csp {
   // A Var has an ID (string) and a domain of legal values
   case class Var[A](id:VarID, domain:Domain[A])
 
-  type Vars[A] = Seq[Var[A]]
+  type Vars[A] = Map[String, Var[A]]
 
   type Domain[A] = Seq[A]
   type Domains[A] = Seq[Domain[A]]
@@ -25,7 +25,7 @@ object csp {
 
     // unsafe!
     def variable(csp:CSP[A]):Var[A] =
-      csp.vars.find(_.id == variable).get
+      csp.vars.get(variable).get
   }
 
   // binary constraint
@@ -33,11 +33,9 @@ object csp {
 
     // unsafe!
     def vars(csp:CSP[A]):(Var[A],Var[A]) = {
-      val o = for {
-        a <- csp.vars.find(_.id == vars._1)
-        b <- csp.vars.find(_.id == vars._2)
-      } yield (a,b)
-      o.get
+      val a = csp.vars.get(vars._1).get
+      val b = csp.vars.get(vars._2).get
+      (a,b)
     }
 
     def reflect:BinCon[A] =  {
@@ -157,14 +155,14 @@ object csp {
 
     // unsafe
     def getVar(vid:VarID):Var[A] =
-      vars.find(_.id == vid).get
+      vars.get(vid).get
 
     def updateDomain(v:Var[A]):CSP[A] =
       updateDomain(v.id, v.domain)
 
     // update the domain of variable with id == vid
     def updateDomain(vid:VarID, domain:Domain[A]):CSP[A] =
-      copy(vars = vars.map(x =>
+      copy(vars = vars.mapValues(x =>
         if (vid == x.id) Var(vid, domain) else x
       ))
 
@@ -347,7 +345,7 @@ object csp {
 
       }
 
-      bc(PartialAssignment(Nil, vars.map(_.id)), this.nodeConsistent)
+      bc(PartialAssignment(Nil, vars.values.map(_.id).toSeq), this.nodeConsistent)
 
     }
 
