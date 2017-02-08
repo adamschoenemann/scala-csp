@@ -15,7 +15,6 @@ object csp {
   type BinRel[A] = (A,A) => Boolean
   type UnaryRel[A] = A => Boolean
 
-  // not used right now
   type NAryRel[A] = Seq[A] => Boolean
 
   sealed trait Constraint[+A]
@@ -44,8 +43,20 @@ object csp {
     }
   }
 
-  // not used right now
-  case class NAryCon[A](vars: Seq[A], rel: NAryRel[A]) extends Constraint[A]
+  case class NAryCon[A](cvid:VarID, vars: Seq[VarID], rel: NAryRel[A]) extends Constraint[A] {
+    def vars(csp:CSP[A]):Seq[Var[A]] = {
+      vars.map(v => csp.vars(v))
+    }
+
+    def toBinary(domainMap:Map[VarID,Domain[A]]):(Var[Seq[A]], Seq[BinCon[Seq[A]]]) = {
+      val domains = vars.map(domainMap(_))
+      val c = Var[Seq[A]](cvid, CSP.combinations(domains))
+      val bcs = for (i <- 0 until vars.length) yield {
+        BinCon[Seq[A]]((vars(i), cvid), (v,c2) => v(0) == c2(i))
+      }
+      (c,bcs)
+    }
+  }
 
   object Constraint {
     // "smart" constructor - just slightly more handy that writing the normal
@@ -76,6 +87,19 @@ object csp {
       y.domain.exists(b =>
       c.rel(a,b)
     ))
+
+    def combinations[A](lst:Seq[Seq[A]]):Seq[Seq[A]] = lst match {
+      case Seq() => lst
+      case Seq(xs) => lst
+      case Seq(xs, ys) => for (x <- xs; y <- ys) yield Seq(x,y)
+      case xs +: xss => xs.flatMap(x => combinations(xss).map(ys => x +: ys))
+    }
+
+    // revise a n-ary constraint
+    def revise[A](vars:Seq[Var[A]], c:NAryCon[A]):Seq[Domain[A]] = {
+      val domains = combinations(vars.map(_.domain))
+      domains.filter(c.rel(_))
+    }
 
     // type aliases used to customize backtracking
     type VarSelecter[A] = (Seq[VarID], CSP[A]) => (VarID, Seq[VarID])
@@ -350,7 +374,6 @@ object csp {
     }
 
   }
-
 
 
   // A single variable assignment

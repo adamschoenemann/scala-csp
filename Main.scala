@@ -217,7 +217,65 @@ object Main extends App {
 
   }
 
+  def testCombinations() {
+    println(CSP.combinations(List(List(1,2))))
+    println(CSP.combinations(List(List(1,2), List(3,4,5))))
+    println(CSP.combinations(List(List(1,2), List(3,4), List(5,6))))
+    println(CSP.combinations(List(List(0,1), List(0,1), List(0,1), List(0,1))))
+  }
+
+  def testReviseNAry() {
+    val bdomain = List(true,false)
+    val ids = List("x", "y")
+    val vars1 = ids.map(x => Var(x, bdomain))
+    val c1 = NAryCon[Boolean]("c1", ids, _.forall(_ == true))
+    assert ((CSP.revise(vars1, c1)) == List(List(true,true)))
+
+    val c2 = NAryCon[Boolean]("c2", ids, _.exists(_ == true))
+    assert ((CSP.revise(vars1, c2)) == List(List(true,true), List(true,false), List(false, true)))
+
+    {
+      val domain = List(0,1)
+      val ids = List("x","y","z")
+      val vars = ids.map(x => Var(x, domain))
+      val c1 = NAryCon[Int]("c1", ids, _.filter(_ == 1).length == 1)
+      assert (CSP.revise(vars, c1) == List(List(0, 0, 1), List(0, 1, 0), List(1, 0, 0)))
+    }
+    {
+      val domain = List(3,5,2,0)
+      val ids = List("x","y","z")
+      val vars = ids.map(x => Var(x, domain))
+      val c1 = NAryCon[Int]("c1", ids, _.sum == 8)
+      assert (CSP.revise(vars, c1) ==
+        List(List(3, 3, 2), List(3, 5, 0), List(3, 2, 3), List(3, 0, 5),
+             List(5, 3, 0), List(5, 0, 3), List(2, 3, 3), List(0, 3, 5), List(0, 5, 3)
+        )
+      )
+    }
+  }
+
+  def testDuality() {
+    val domain = List(true,false)
+    val ids = List.range(1,7).map(n => s"x_$n")
+    val clause1 = NAryCon[Boolean]("y_1", Seq("x_1","x_2","x_6"), _.exists(_ == true))
+    val clause2 = NAryCon[Boolean]("y_2", Seq("x_1","x_3","x_4"),
+                    c => !c(0) || c(1) || c(2))
+    val clause3 = NAryCon[Boolean]("y_3", Seq("x_4","x_5","x_6"),
+                    c => !c(0) || !c(1) || c(2))
+    val clause4 = NAryCon[Boolean]("y_4", Seq("x_2","x_5","x_6"),
+                    c => c(0) || c(1) || !c(2))
+
+    val clauses = List(clause1, clause2, clause3, clause4)
+    val domainMap = ids.map((_, domain)).toMap
+    val dual = clauses.map(_.toBinary(domainMap))
+
+    dual.map(x => println(x._2))
+
+  }
+
+  testDuality()
+  // testReviseNAry()
   // test()
-  testShiftAssignment()
+  // testShiftAssignment()
 
  }
